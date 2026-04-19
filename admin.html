@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Espace Membres — Les Jardins Partagés</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --green-deep:#152a1e;--green-mid:#264d35;--green-light:#3d7a50;--green-pale:#8ec49e;
+      --green-wash:#d8eedf;--cream:#f2ede3;--sand:#e8dfc9;--terracotta:#b35f38;
+      --terra-light:#d98a68;--text-dark:#16231a;--text-mid:#3e5244;--text-light:#6b8070;
+      --radius-pill:999px;--radius-card:16px;
+      --shadow-soft:0 4px 24px rgba(21,42,30,.09);--shadow-card:0 20px 60px rgba(21,42,30,.18);
+      --ease-out:cubic-bezier(.22,.61,.36,1);--ease-spring:cubic-bezier(.34,1.56,.64,1);
+      --sidebar-w:260px;
+    }
+    html{scroll-behavior:smooth;}
+    body{font-family:'DM Sans',sans-serif;background:var(--cream);color:var(--text-dark);min-height:100vh;-webkit-font-smoothing:antialiased;}
+
+    #loadingScreen{position:fixed;inset:0;background:var(--green-deep);display:flex;align-items:center;justify-content:center;z-index:9999;transition:opacity .4s;}
+    #loadingScreen.hidden{opacity:0;pointer-events:none;}
+    .loading-inner{text-align:center;}
+    .loading-dot{width:10px;height:10px;border-radius:50%;background:var(--green-pale);display:inline-block;animation:pulse 1.2s ease-in-out infinite;}
+    .loading-dot:nth-child(2){animation-delay:.2s;margin:0 8px;}
+    .loading-dot:nth-child(3){animation-delay:.4s;}
+    @keyframes pulse{0%,80%,100%{transform:scale(.7);opacity:.4;}40%{transform:scale(1);opacity:1;}}
+    .loading-text{display:block;margin-top:18px;font-family:'Playfair Display',serif;color:rgba(255,255,255,.5);font-size:.9rem;}
+
+    #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at 15% 85%,rgba(21,42,30,.7) 0%,transparent 55%),radial-gradient(ellipse at 85% 15%,rgba(61,122,80,.45) 0%,transparent 55%),var(--green-deep);padding:24px;}
+    .login-card{background:var(--cream);border-radius:24px;padding:48px 44px;width:100%;max-width:420px;box-shadow:var(--shadow-card);animation:fadeUp .55s var(--ease-out) both;}
+    @media(max-width:480px){.login-card{padding:36px 24px;}}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(28px);}to{opacity:1;transform:translateY(0);}}
+    .login-brand{font-family:'Playfair Display',serif;font-size:1.05rem;font-weight:700;color:var(--green-deep);margin-bottom:28px;display:flex;align-items:center;gap:10px;}
+    .login-brand-dot{width:10px;height:10px;border-radius:50%;background:var(--green-light);flex-shrink:0;}
+    .login-card h2{font-family:'Playfair Display',serif;font-size:1.75rem;color:var(--green-deep);margin-bottom:6px;}
+    .login-card>p{font-size:.88rem;color:var(--text-light);margin-bottom:32px;}
+
+    .form-group{margin-bottom:18px;}
+    .form-group label{display:block;font-size:.78rem;font-weight:500;letter-spacing:.04em;color:var(--text-mid);margin-bottom:7px;text-transform:uppercase;}
+    .form-group input,.form-group select,.form-group textarea{width:100%;padding:12px 16px;border-radius:12px;border:1.5px solid rgba(61,122,80,.18);background:white;font-family:'DM Sans',sans-serif;font-size:.92rem;color:var(--text-dark);outline:none;transition:border-color .2s,box-shadow .2s;-webkit-appearance:none;}
+    .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--green-light);box-shadow:0 0 0 3px rgba(61,122,80,.1);}
+    .form-group textarea{resize:vertical;min-height:80px;line-height:1.5;}
+
+    .btn-primary{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--green-mid);color:#fff;padding:13px 28px;border-radius:var(--radius-pill);font-family:'DM Sans',sans-serif;font-size:.92rem;font-weight:500;border:none;cursor:pointer;transition:background .2s,transform .2s var(--ease-spring),box-shadow .2s;box-shadow:0 4px 18px rgba(38,77,53,.28);text-decoration:none;}
+    .btn-primary:hover{background:var(--green-deep);transform:translateY(-2px);box-shadow:0 8px 28px rgba(38,77,53,.32);}
+    .btn-primary:disabled{opacity:.55;cursor:not-allowed;transform:none;}
+    .btn-primary.btn-full{width:100%;}
+    .btn-ghost{display:inline-flex;align-items:center;gap:8px;color:var(--green-mid);padding:10px 20px;border-radius:var(--radius-pill);font-family:'DM Sans',sans-serif;font-size:.88rem;border:1.5px solid rgba(61,122,80,.28);cursor:pointer;background:none;transition:background .2s,border-color .2s;}
+    .btn-ghost:hover{background:var(--green-wash);border-color:var(--green-pale);}
+    .btn-danger{display:inline-flex;align-items:center;gap:6px;background:#b33838;color:white;border:none;padding:10px 20px;border-radius:var(--radius-pill);font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:500;cursor:pointer;transition:background .2s;}
+    .btn-danger:hover{background:#8c2a2a;}
+
+    .login-error{color:var(--terracotta);font-size:.83rem;margin-top:10px;text-align:center;min-height:18px;}
+    .login-back{display:block;text-align:center;margin-top:20px;color:var(--text-light);font-size:.83rem;text-decoration:none;transition:color .2s;}
+    .login-back:hover{color:var(--green-mid);}
+
+    #dashboard{display:none;min-height:100vh;}
+    .dash-layout{display:flex;min-height:100vh;}
+
+    .sidebar{width:var(--sidebar-w);flex-shrink:0;background:var(--green-deep);padding:24px 16px;display:flex;flex-direction:column;gap:2px;position:fixed;top:0;left:0;bottom:0;overflow-y:auto;z-index:400;transition:transform .3s var(--ease-out);overscroll-behavior:contain;}
+    .sidebar-logo{font-family:'Playfair Display',serif;font-weight:700;font-size:.95rem;color:white;margin-bottom:20px;padding:4px 8px 12px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;gap:10px;}
+    .sidebar-logo-dot{width:8px;height:8px;border-radius:50%;background:var(--green-pale);flex-shrink:0;}
+    .sidebar-section{font-size:.68rem;font-weight:500;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.3);padding:14px 8px 4px;}
+    .nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;color:rgba(255,255,255,.6);font-size:.875rem;cursor:pointer;transition:background .18s,color .18s;border:none;background:none;width:100%;text-align:left;}
+    .nav-item:hover{background:rgba(255,255,255,.07);color:white;}
+    .nav-item.active{background:rgba(142,196,158,.14);color:var(--green-pale);}
+    .nav-icon{width:20px;height:20px;flex-shrink:0;opacity:.7;}
+    .nav-item.active .nav-icon{opacity:1;}
+    .nav-badge{margin-left:auto;background:var(--terracotta);color:white;font-size:.68rem;font-weight:600;padding:2px 7px;border-radius:var(--radius-pill);min-width:18px;text-align:center;}
+    .sidebar-spacer{flex:1;}
+    .sidebar-user{border-top:1px solid rgba(255,255,255,.08);padding-top:14px;margin-top:8px;}
+    .user-pill{display:flex;align-items:center;gap:10px;padding:10px;border-radius:12px;background:rgba(255,255,255,.06);}
+    .user-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--green-light),var(--terracotta));display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:600;color:white;flex-shrink:0;}
+    .user-info{flex:1;min-width:0;}
+    .user-name{font-size:.85rem;color:white;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .user-role-badge{font-size:.7rem;padding:2px 8px;border-radius:var(--radius-pill);font-weight:500;display:inline-block;margin-top:2px;}
+    .role-presidente{background:rgba(179,95,56,.3);color:var(--terra-light);}
+    .role-tresoriere{background:rgba(61,122,80,.3);color:var(--green-pale);}
+    .role-secretaire{background:rgba(100,120,200,.3);color:#aab8f5;}
+    .role-jardinier{background:rgba(255,255,255,.1);color:rgba(255,255,255,.55);}
+    .logout-btn{background:none;border:none;color:rgba(255,255,255,.35);cursor:pointer;padding:4px;transition:color .2s;flex-shrink:0;}
+    .logout-btn:hover{color:rgba(255,255,255,.75);}
+
+    .topbar{display:none;position:fixed;top:0;left:0;right:0;height:56px;background:var(--green-deep);align-items:center;justify-content:space-between;padding:0 18px;z-index:500;box-shadow:0 2px 12px rgba(0,0,0,.2);}
+    .topbar-logo{font-family:'Playfair Display',serif;font-size:.9rem;font-weight:700;color:white;}
+    .burger-btn{width:36px;height:36px;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:4px;}
+    .burger-btn span{display:block;width:22px;height:2px;background:white;border-radius:2px;transition:transform .25s var(--ease-out),opacity .2s;}
+    .burger-btn.open span:nth-child(1){transform:translateY(7px) rotate(45deg);}
+    .burger-btn.open span:nth-child(2){opacity:0;}
+    .burger-btn.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg);}
+    .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:300;opacity:0;transition:opacity .3s;}
+    .sidebar-overlay.visible{opacity:1;}
+
+    .dash-main{flex:1;margin-left:var(--sidebar-w);padding:36px 40px;min-height:100vh;max-width:calc(100vw - var(--sidebar-w));}
+    .dash-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:32px;gap:20px;flex-wrap:wrap;}
+    .dash-header h1{font-family:'Playfair Display',serif;font-size:1.9rem;color:var(--green-deep);line-height:1.2;}
+    .dash-header p{font-size:.88rem;color:var(--text-light);margin-top:4px;}
+
+    .page{display:none;animation:fadeUp .35s var(--ease-out) both;}
+    .page.active{display:block;}
+
+    .card{background:white;border-radius:var(--radius-card);border:1.5px solid rgba(61,122,80,.09);box-shadow:var(--shadow-soft);}
+    .card-body{padding:28px;}
+    .card-title{font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--green-deep);margin-bottom:16px;}
+
+    .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:16px;margin-bottom:24px;}
+    .stat-card{background:white;border-radius:var(--radius-card);padding:22px 20px;border:1.5px solid rgba(61,122,80,.09);box-shadow:var(--shadow-soft);transition:transform .2s var(--ease-spring),box-shadow .2s;}
+    .stat-card:hover{transform:translateY(-3px);box-shadow:0 8px 32px rgba(21,42,30,.12);}
+    .stat-label{font-size:.75rem;color:var(--text-light);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em;}
+    .stat-value{font-family:'Playfair Display',serif;font-size:2rem;color:var(--green-deep);font-weight:700;}
+    .stat-sub{font-size:.75rem;color:var(--text-light);margin-top:3px;}
+
+    .rights-list{list-style:none;display:flex;flex-direction:column;gap:9px;}
+    .rights-list li{display:flex;align-items:center;gap:10px;font-size:.88rem;color:var(--text-mid);}
+    .right-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+    .right-dot.granted{background:var(--green-light);}
+    .right-dot.denied{background:rgba(0,0,0,.15);}
+
+    .toolbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;gap:12px;flex-wrap:wrap;}
+    .toolbar-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+    .search-box{padding:9px 16px;border-radius:var(--radius-pill);border:1.5px solid rgba(61,122,80,.18);background:white;font-family:'DM Sans',sans-serif;font-size:.88rem;color:var(--text-dark);outline:none;width:220px;transition:border-color .2s,box-shadow .2s;-webkit-appearance:none;}
+    .search-box:focus{border-color:var(--green-light);box-shadow:0 0 0 3px rgba(61,122,80,.1);}
+
+    .table-wrap{border-radius:var(--radius-card);overflow:hidden;box-shadow:var(--shadow-soft);overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    .data-table{width:100%;border-collapse:collapse;background:white;min-width:580px;}
+    .data-table th{text-align:left;padding:13px 16px;font-size:.72rem;font-weight:500;letter-spacing:.09em;text-transform:uppercase;color:var(--text-light);background:var(--sand);border-bottom:1px solid rgba(61,122,80,.08);white-space:nowrap;}
+    .data-table td{padding:13px 16px;font-size:.88rem;color:var(--text-dark);border-bottom:1px solid rgba(61,122,80,.055);vertical-align:middle;}
+    .data-table tr:last-child td{border-bottom:none;}
+    .data-table tr:hover td{background:rgba(216,238,223,.28);}
+
+    .member-cell{display:flex;align-items:center;gap:11px;}
+    .member-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:600;color:white;flex-shrink:0;}
+    .av-green{background:linear-gradient(135deg,var(--green-light),var(--green-mid));}
+    .av-terra{background:linear-gradient(135deg,var(--terracotta),#8c3a20);}
+    .av-blue{background:linear-gradient(135deg,#4a6cb5,#2c4a8c);}
+    .av-purple{background:linear-gradient(135deg,#7a4a9e,#5a2a7e);}
+    .av-gold{background:linear-gradient(135deg,#b8962a,#8a6e1a);}
+    .av-teal{background:linear-gradient(135deg,#2a8a8a,#1a6060);}
+
+    .role-tag{font-size:.73rem;padding:3px 10px;border-radius:var(--radius-pill);font-weight:500;display:inline-block;white-space:nowrap;}
+    .tag-presidente{background:rgba(179,95,56,.12);color:#8a3a1c;border:1px solid rgba(179,95,56,.2);}
+    .tag-tresoriere{background:rgba(61,122,80,.1);color:var(--green-mid);border:1px solid rgba(61,122,80,.18);}
+    .tag-secretaire{background:rgba(74,108,181,.1);color:#3a5aa8;border:1px solid rgba(74,108,181,.18);}
+    .tag-jardinier{background:rgba(0,0,0,.04);color:var(--text-mid);border:1px solid rgba(0,0,0,.07);}
+
+    .actions-cell{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
+    .btn-sm{padding:5px 13px;border-radius:var(--radius-pill);font-size:.78rem;font-weight:500;cursor:pointer;border:1.5px solid;transition:background .18s,color .18s,transform .15s;background:none;font-family:'DM Sans',sans-serif;white-space:nowrap;}
+    .btn-sm:hover{transform:translateY(-1px);}
+    .btn-edit{border-color:rgba(61,122,80,.28);color:var(--green-mid);}
+    .btn-edit:hover{background:var(--green-wash);}
+    .btn-del{border-color:rgba(179,95,56,.28);color:var(--terracotta);}
+    .btn-del:hover{background:rgba(179,95,56,.07);}
+    .btn-parcelle{border-color:rgba(61,122,80,.18);color:var(--text-mid);}
+    .btn-parcelle:hover{background:var(--green-wash);color:var(--green-mid);}
+
+    .parcel-status{display:inline-flex;align-items:center;gap:5px;font-size:.78rem;font-weight:500;padding:3px 10px;border-radius:var(--radius-pill);}
+    .parcel-none{background:rgba(0,0,0,.05);color:var(--text-light);}
+    .parcel-active{background:rgba(61,122,80,.1);color:var(--green-mid);border:1px solid rgba(61,122,80,.18);}
+    .parcel-issue{background:rgba(179,95,56,.1);color:var(--terracotta);border:1px solid rgba(179,95,56,.18);}
+    .parcel-inactive{background:rgba(0,0,0,.06);color:var(--text-mid);border:1px solid rgba(0,0,0,.1);}
+
+    .announcement-card{background:white;border-radius:var(--radius-card);border:1.5px solid rgba(61,122,80,.09);padding:22px 24px;box-shadow:var(--shadow-soft);transition:transform .2s var(--ease-spring),box-shadow .2s;position:relative;overflow:hidden;}
+    .announcement-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;border-radius:3px 0 0 3px;}
+    .announcement-card.priority-normale::before{background:var(--green-pale);}
+    .announcement-card.priority-urgente::before{background:var(--terracotta);}
+    .announcement-card.priority-info::before{background:#6aaccc;}
+    .announcement-card:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(21,42,30,.1);}
+    .ann-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap;}
+    .ann-title{font-family:'Playfair Display',serif;font-size:1.05rem;color:var(--green-deep);font-weight:700;}
+    .ann-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+    .ann-tag{font-size:.72rem;padding:2px 9px;border-radius:var(--radius-pill);font-weight:500;border:1px solid;}
+    .ann-priority-normale{background:rgba(142,196,158,.15);color:var(--green-mid);border-color:rgba(142,196,158,.4);}
+    .ann-priority-urgente{background:rgba(179,95,56,.12);color:var(--terracotta);border-color:rgba(179,95,56,.3);}
+    .ann-priority-info{background:rgba(106,172,204,.12);color:#3a7ca8;border-color:rgba(106,172,204,.3);}
+    .ann-audience{font-size:.72rem;color:var(--text-light);background:rgba(0,0,0,.04);padding:2px 9px;border-radius:var(--radius-pill);border:1px solid rgba(0,0,0,.07);}
+    .ann-body{font-size:.9rem;color:var(--text-mid);line-height:1.65;margin-bottom:12px;}
+    .ann-footer{font-size:.78rem;color:var(--text-light);}
+    .ann-actions{display:flex;gap:8px;margin-top:14px;}
+    .announcements-grid{display:flex;flex-direction:column;gap:14px;}
+    .empty-state{text-align:center;padding:48px 24px;color:var(--text-light);font-size:.9rem;}
+    .empty-state strong{display:block;font-family:'Playfair Display',serif;font-size:1.1rem;color:var(--text-mid);margin-bottom:8px;}
+
+    .modal-overlay{position:fixed;inset:0;background:rgba(21,42,30,.5);backdrop-filter:blur(5px);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .3s;}
+    .modal-overlay.open{opacity:1;pointer-events:all;}
+    .modal{background:var(--cream);border-radius:22px;padding:36px 32px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-card);transform:translateY(22px) scale(.97);transition:transform .3s var(--ease-spring);}
+    .modal-overlay.open .modal{transform:translateY(0) scale(1);}
+    .modal h2{font-family:'Playfair Display',serif;font-size:1.45rem;color:var(--green-deep);margin-bottom:5px;}
+    .modal-sub{font-size:.85rem;color:var(--text-light);margin-bottom:26px;}
+    .modal-footer{display:flex;gap:10px;margin-top:26px;justify-content:flex-end;flex-wrap:wrap;}
+    .modal select{width:100%;padding:12px 16px;border-radius:12px;border:1.5px solid rgba(61,122,80,.18);background:white;font-family:'DM Sans',sans-serif;font-size:.92rem;color:var(--text-dark);outline:none;-webkit-appearance:none;transition:border-color .2s;cursor:pointer;}
+    .modal select:focus{border-color:var(--green-light);}
+
+    .rights-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:6px;}
+    .right-check{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:10px;border:1.5px solid rgba(61,122,80,.12);background:white;cursor:pointer;transition:border-color .2s,background .2s;}
+    .right-check:hover{border-color:var(--green-pale);background:var(--green-wash);}
+    .right-check input[type="checkbox"]{accent-color:var(--green-mid);width:15px;height:15px;cursor:pointer;flex-shrink:0;}
+    .right-check span{font-size:.84rem;color:var(--text-dark);}
+
+    .pwd-row{display:flex;gap:8px;align-items:stretch;}
+    .pwd-row input{flex:1;}
+    .btn-gen{padding:12px 14px;border-radius:12px;border:1.5px solid rgba(61,122,80,.22);background:var(--green-wash);color:var(--green-mid);font-family:'DM Sans',sans-serif;font-size:.8rem;font-weight:500;cursor:pointer;white-space:nowrap;transition:background .2s;}
+    .btn-gen:hover{background:var(--green-pale);color:white;}
+
+    .grade-perm-table{width:100%;border-collapse:collapse;}
+    .grade-perm-table th{text-align:left;padding:10px 12px;font-size:.72rem;font-weight:500;text-transform:uppercase;letter-spacing:.08em;color:var(--text-light);background:var(--sand);border-bottom:1px solid rgba(61,122,80,.08);}
+    .grade-perm-table td{padding:11px 12px;font-size:.88rem;border-bottom:1px solid rgba(61,122,80,.055);vertical-align:middle;}
+    .grade-perm-table tr:last-child td{border-bottom:none;}
+    .grade-perm-table tr:hover td{background:rgba(216,238,223,.2);}
+    .grade-perm-table td:first-child{font-weight:500;color:var(--text-mid);}
+    .perm-check{display:flex;justify-content:center;}
+    .perm-check input[type="checkbox"]{accent-color:var(--green-mid);width:16px;height:16px;cursor:pointer;}
+
+    .audience-checks{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px;}
+    .audience-chip{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:var(--radius-pill);border:1.5px solid rgba(61,122,80,.18);background:white;cursor:pointer;font-size:.83rem;color:var(--text-mid);transition:border-color .2s,background .2s,color .2s;}
+    .audience-chip:hover{border-color:var(--green-pale);background:var(--green-wash);}
+    .audience-chip input[type="checkbox"]{accent-color:var(--green-mid);width:14px;height:14px;cursor:pointer;}
+    .audience-chip.checked{border-color:var(--green-light);background:var(--green-wash);color:var(--green-mid);}
+
+    .parcel-detail{background:white;border-radius:var(--radius-card);border:1.5px solid rgba(61,122,80,.09);padding:24px 28px;box-shadow:var(--shadow-soft);}
+    .parcel-field{margin-bottom:18px;}
+    .parcel-field label{display:block;font-size:.75rem;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:var(--text-light);margin-bottom:6px;}
+    .parcel-field p{font-size:.92rem;color:var(--text-dark);line-height:1.6;}
+    .divider{border:none;border-top:1px solid rgba(61,122,80,.09);margin:20px 0;}
+    .section-label-sm{font-size:.72rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--text-light);margin-bottom:10px;}
+
+    #toastContainer{position:fixed;bottom:24px;right:24px;z-index:3000;display:flex;flex-direction:column;gap:8px;pointer-events:none;}
+    .toast{padding:13px 18px;border-radius:12px;font-size:.86rem;font-weight:500;color:white;box-shadow:var(--shadow-card);animation:toastIn .38s var(--ease-spring) both;pointer-events:all;max-width:300px;}
+    .toast-success{background:var(--green-mid);}
+    .toast-error{background:var(--terracotta);}
+    @keyframes toastIn{from{opacity:0;transform:translateY(14px) scale(.95);}to{opacity:1;transform:translateY(0) scale(1);}}
+
+    @media(max-width:900px){.dash-main{padding:28px 24px;}.stats-row{grid-template-columns:repeat(2,1fr);}}
+    @media(max-width:768px){
+      .sidebar{transform:translateX(-100%);box-shadow:4px 0 20px rgba(0,0,0,.2);}
+      .sidebar.open{transform:translateX(0);}
+      .sidebar-overlay{display:block;}
+      .topbar{display:flex;}
+      .dash-main{margin-left:0;max-width:100vw;padding:80px 18px 28px;}
+      .dash-header h1{font-size:1.5rem;}
+      .toolbar{flex-direction:column;align-items:stretch;}
+      .toolbar-left{flex-direction:column;}
+      .search-box{width:100%;}
+      .rights-grid{grid-template-columns:1fr;}
+      .modal{padding:28px 22px;border-radius:18px;}
+      .modal-footer{justify-content:stretch;}
+      .modal-footer .btn-primary,.modal-footer .btn-ghost{flex:1;justify-content:center;}
+      #toastContainer{left:16px;right:16px;bottom:16px;}
+      .toast{max-width:100%;}
+      #publishLayout{grid-template-columns:1fr !important;}
+    }
+    @media(max-width:480px){.stats-row{grid-template-columns:1fr 1fr;gap:10px;}.stat-card{padding:16px 14px;}.stat-value{font-size:1.6rem;}}
+  </style>
+</head>
+<body>
+
+<div id="loadingScreen">
+  <div class="loading-inner">
+    <div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div>
+    <span class="loading-text">Jardins Partagés</span>
+  </div>
+</div>
+
+<div id="loginScreen" style="display:none;">
+  <div class="login-card">
+    <div class="login-brand"><div class="login-brand-dot"></div>Les Jardins Partagés</div>
+    <h2>Espace membres</h2>
+    <p>Connectez-vous à votre compte</p>
+    <div class="form-group"><label for="loginEmail">Adresse e-mail</label><input type="email" id="loginEmail" placeholder="votre@email.com" autocomplete="email" /></div>
+    <div class="form-group"><label for="loginPassword">Mot de passe</label><input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" /></div>
+    <button class="btn-primary btn-full" id="loginBtn">Se connecter</button>
+    <div class="login-error" id="loginError"></div>
+    <a href="index.html" class="login-back">Retour au site public</a>
+  </div>
+</div>
+
+<div id="dashboard">
+  <div class="topbar" id="topbar">
+    <div class="topbar-logo">Les Jardins Partagés</div>
+    <button class="burger-btn" id="burgerBtn" aria-label="Menu"><span></span><span></span><span></span></button>
+  </div>
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+  <div class="dash-layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo"><div class="sidebar-logo-dot"></div>Jardins Partagés</div>
+      <div class="sidebar-section">Navigation</div>
+      <button class="nav-item active" data-page="welcome"><svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 9.5L10 3l7 6.5V17a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M8 18v-5h4v5"/></svg>Accueil</button>
+      <button class="nav-item" data-page="parcelle"><svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="2" width="7" height="7" rx="1.5"/><rect x="11" y="2" width="7" height="7" rx="1.5"/><rect x="2" y="11" width="7" height="7" rx="1.5"/><rect x="11" y="11" width="7" height="7" rx="1.5"/></svg>Ma parcelle</button>
+      <button class="nav-item" data-page="agenda"><svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="14" height="13" rx="2"/><path d="M3 8h14M7 2v3M13 2v3"/></svg>Agenda</button>
+      <button class="nav-item" data-page="annonces"><svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 9h12M4 13h7"/><rect x="2" y="4" width="16" height="13" rx="2"/></svg>Annonces<span class="nav-badge" id="annBadge" style="display:none;">0</span></button>
+      <div class="sidebar-section admin-section" style="display:none;">Administration</div>
+      <button class="nav-item admin-nav" data-page="members" style="display:none;"><svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="7" r="3"/><path d="M2 17c0-3.314 2.686-5 6-5"/><circle cx="14" cy="11" r="2.5"/><path d="M10.5 17c0-2.485 1.567-3.5 3.5-3.5s3.5 1.015 3.5 3.5"/></svg>Membres</button>
+      <button class="nav-item admin-nav" data-page="finances" style="display:none;"><svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="5" width="16" height="11" rx="2"/><path d="M2 9h16M6 13h2M10 13h4"/></svg>Finances</button>
+      <button class="nav-item admin-nav" data-page="comptes" style="display:none;"><svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="2.5"/><path d="M10 2v2M10 16v2M2 10h2M16 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42"/></svg>Gestion comptes</button>
+      <button class="nav-item admin-nav" data-page="grades" style="display:none;" id="navGrades"><svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M10 2l2.5 5H18l-4 3.5 1.5 5.5L10 13l-5.5 3L6 10.5 2 7h5.5z"/></svg>Droits par grade</button>
+      <button class="nav-item admin-nav" data-page="publish" style="display:none;" id="navPublish"><svg class="nav-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 14l3-3 3 3 6-6"/><path d="M15 8V4H5v12h5"/><path d="M13 13l5-5M18 13v-5h-5"/></svg>Publier une annonce</button>
+      <div class="sidebar-spacer"></div>
+      <div class="sidebar-user"><div class="user-pill"><div class="user-avatar" id="sidebarAvatar"></div><div class="user-info"><div class="user-name" id="sidebarName"></div><span class="user-role-badge" id="sidebarRoleBadge"></span></div><button class="logout-btn" id="logoutBtn" aria-label="Déconnexion"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" width="16" height="16"><path d="M10 12l4-4-4-4M14 8H6M6 3H3a1 1 0 00-1 1v8a1 1 0 001 1h3"/></svg></button></div></div>
+    </aside>
+
+    <main class="dash-main">
+      <div class="page active" id="page-welcome">
+        <div class="dash-header"><div><h1 id="welcomeTitle">Bonjour</h1><p id="welcomeSub">Bienvenue</p></div><a href="index.html" style="font-size:.83rem;color:var(--text-light);text-decoration:none;white-space:nowrap;">Retour au site public</a></div>
+        <div class="stats-row">
+          <div class="stat-card"><div class="stat-label">Membres actifs</div><div class="stat-value" id="statMembers">—</div><div class="stat-sub">dans l'association</div></div>
+          <div class="stat-card"><div class="stat-label">Jardins ouverts</div><div class="stat-value">7</div><div class="stat-sub">espaces partagés</div></div>
+          <div class="stat-card"><div class="stat-label">Annonces</div><div class="stat-value" id="statAnnonces">—</div><div class="stat-sub">pour vous</div></div>
+          <div class="stat-card"><div class="stat-label">Prochain événement</div><div class="stat-value">14 juin</div><div class="stat-sub">Portes ouvertes</div></div>
+        </div>
+        <div class="card"><div class="card-body"><div class="card-title">Vos droits et accès</div><ul class="rights-list" id="rightsList"></ul></div></div>
+      </div>
+
+      <div class="page" id="page-parcelle">
+        <div class="dash-header"><div><h1>Ma parcelle</h1><p>Informations sur votre espace de jardinage</p></div></div>
+        <div id="parcelleContent"></div>
+      </div>
+
+      <div class="page" id="page-agenda">
+        <div class="dash-header"><div><h1>Agenda</h1><p>Événements à venir</p></div></div>
+        <div class="card"><div class="card-body"><div class="card-title">Prochains rendez-vous</div>
+          <div style="display:flex;align-items:center;gap:20px;padding:14px 0;border-bottom:1px solid rgba(61,122,80,.07);"><div style="min-width:48px;text-align:center;"><div style="font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;color:var(--green-deep);line-height:1;">14</div><div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-light);">Juin</div></div><div style="flex:1;"><div style="font-weight:500;margin-bottom:2px;">Journée portes ouvertes</div><div style="font-size:.85rem;color:var(--text-light);">Tous les jardins — 10h à 18h</div></div></div>
+          <div style="display:flex;align-items:center;gap:20px;padding:14px 0;border-bottom:1px solid rgba(61,122,80,.07);"><div style="min-width:48px;text-align:center;"><div style="font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;color:var(--green-deep);line-height:1;">22</div><div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-light);">Juin</div></div><div style="flex:1;"><div style="font-weight:500;margin-bottom:2px;">Atelier compostage</div><div style="font-size:.85rem;color:var(--text-light);">Jardin des Lilas — 14h</div></div></div>
+          <div style="display:flex;align-items:center;gap:20px;padding:14px 0;"><div style="min-width:48px;text-align:center;"><div style="font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;color:var(--green-deep);line-height:1;">5</div><div style="font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text-light);">Juil</div></div><div style="flex:1;"><div style="font-weight:500;margin-bottom:2px;">Troc de plants et graines</div><div style="font-size:.85rem;color:var(--text-light);">La Serre Partagée — 9h à 12h</div></div></div>
+        </div></div>
+      </div>
+
+      <div class="page" id="page-annonces">
+        <div class="dash-header"><div><h1>Annonces</h1><p>Actualités et communications de l'association</p></div></div>
+        <div class="announcements-grid" id="annoncesList"></div>
+      </div>
+
+      <div class="page" id="page-members">
+        <div class="dash-header"><div><h1>Membres</h1><p>Liste des jardiniers inscrits</p></div></div>
+        <div class="card"><div class="card-body" id="memberListReadOnly"></div></div>
+      </div>
+
+      <div class="page" id="page-finances">
+        <div class="dash-header"><div><h1>Finances</h1><p>Suivi des cotisations</p></div></div>
+        <div class="card"><div class="card-body"><div class="card-title">Aperçu financier</div><p style="color:var(--text-mid);font-size:.92rem;">Fonctionnalité en préparation.</p></div></div>
+      </div>
+
+      <div class="page" id="page-comptes">
+        <div class="dash-header"><div><h1>Gestion des comptes</h1><p>Créer, modifier et supprimer les comptes membres</p></div><button class="btn-primary" id="openCreateModal">Nouveau compte</button></div>
+        <div class="toolbar"><div class="toolbar-left"><input type="search" class="search-box" id="memberSearch" placeholder="Rechercher un membre…" /><span style="font-size:.82rem;color:var(--text-light);" id="memberCount"></span></div></div>
+        <div class="table-wrap"><table class="data-table"><thead><tr><th>Membre</th><th>E-mail</th><th>Grade</th><th>Parcelle</th><th>Actions</th></tr></thead><tbody id="membersBody"></tbody></table></div>
+      </div>
+
+      <div class="page" id="page-grades">
+        <div class="dash-header"><div><h1>Droits par grade</h1><p>Permissions par défaut de chaque grade</p></div><button class="btn-primary" id="saveGradePerms">Enregistrer</button></div>
+        <div class="card"><div class="card-body">
+          <p style="font-size:.85rem;color:var(--text-light);margin-bottom:20px;">Ces permissions s'appliquent à tous les membres d'un grade, sauf ajustement individuel. La présidente dispose toujours de tous les droits.</p>
+          <div class="table-wrap"><table class="grade-perm-table"><thead><tr><th>Permission</th><th style="text-align:center;">Jardinier</th><th style="text-align:center;">Secretaire</th><th style="text-align:center;">Tresoriere</th></tr></thead><tbody id="gradePermBody"></tbody></table></div>
+        </div></div>
+      </div>
+
+      <div class="page" id="page-publish">
+        <div class="dash-header"><div><h1>Publier une annonce</h1><p>Rédigez et diffusez un message aux membres</p></div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;" id="publishLayout">
+          <div class="card"><div class="card-body">
+            <div class="card-title">Rédaction</div>
+            <div class="form-group"><label>Titre</label><input type="text" id="annTitre" placeholder="Ex : Réunion du bureau" /></div>
+            <div class="form-group"><label>Contenu</label><textarea id="annContenu" rows="5" placeholder="Rédigez votre message…"></textarea></div>
+            <div class="form-group"><label>Priorité</label><select id="annPriority"><option value="normale">Normale</option><option value="info">Information</option><option value="urgente">Urgente</option></select></div>
+            <div class="form-group">
+              <label>Destinataires</label>
+              <p style="font-size:.8rem;color:var(--text-light);margin-bottom:10px;">Grades qui verront cette annonce.</p>
+              <div class="audience-checks" id="audienceChecks">
+                <label class="audience-chip checked"><input type="checkbox" value="jardinier" checked />Jardiniers</label>
+                <label class="audience-chip checked"><input type="checkbox" value="secretaire" checked />Secretaires</label>
+                <label class="audience-chip checked"><input type="checkbox" value="tresoriere" checked />Tresorieres</label>
+                <label class="audience-chip checked"><input type="checkbox" value="presidente" checked />Presidente</label>
+              </div>
+            </div>
+            <button class="btn-primary" id="publishBtn">Publier l'annonce</button>
+          </div></div>
+          <div><div class="section-label-sm" style="margin-bottom:12px;">Annonces publiées</div><div class="announcements-grid" id="publishedList"></div></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div class="modal-overlay" id="accountModal">
+  <div class="modal">
+    <h2 id="modalTitle">Nouveau compte</h2><p class="modal-sub" id="modalSubtitle"></p>
+    <div class="form-group"><label>Prénom et Nom</label><input type="text" id="mNom" placeholder="Marie Dupont" /></div>
+    <div class="form-group"><label>Adresse e-mail</label><input type="email" id="mEmail" placeholder="marie@jardins.fr" /></div>
+    <div class="form-group"><label>Mot de passe <span id="pwdHint" style="font-size:.75rem;color:var(--text-light);text-transform:none;font-weight:400;">(laisser vide pour ne pas modifier)</span></label><div class="pwd-row"><input type="text" id="mPassword" placeholder="Mot de passe" autocomplete="new-password" /><button class="btn-gen" id="generatePwd">Générer</button></div></div>
+    <div class="form-group"><label>Grade</label><select id="mRole"><option value="jardinier">Jardinier</option><option value="secretaire">Secretaire</option><option value="tresoriere">Tresoriere</option><option value="presidente">Presidente</option></select></div>
+    <hr class="divider" />
+    <div class="form-group"><label>Droits supplémentaires</label>
+      <div class="rights-grid">
+        <label class="right-check"><input type="checkbox" id="rParcelle" /><span>Gestion des parcelles</span></label>
+        <label class="right-check"><input type="checkbox" id="rFinances" /><span>Accès finances</span></label>
+        <label class="right-check"><input type="checkbox" id="rAnnonces" /><span>Publier des annonces</span></label>
+        <label class="right-check"><input type="checkbox" id="rMembers"  /><span>Voir les membres</span></label>
+        <label class="right-check"><input type="checkbox" id="rAdmin"    /><span>Administration</span></label>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn-ghost" id="cancelModal">Annuler</button><button class="btn-primary" id="saveAccount">Enregistrer</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="parcelModal">
+  <div class="modal">
+    <h2>Parcelle de <span id="parcelModalName"></span></h2><p class="modal-sub">Gérer l'état et les informations de la parcelle</p>
+    <div class="form-group"><label>Numéro de parcelle</label><input type="text" id="pNumero" placeholder="Ex : 12" /></div>
+    <div class="form-group"><label>Jardin</label><select id="pJardin"><option value="">Aucun jardin attribué</option><option>Jardin des Lilas</option><option>La Serre Partagée</option><option>Le Potager Collectif</option><option>Jardin du Moulin</option><option>L'Orée Verte</option><option>Les Terrasses</option><option>Le Clos Fleuri</option></select></div>
+    <div class="form-group"><label>Etat</label><select id="pEtat"><option value="none">Aucune parcelle</option><option value="active">Active — en bon état</option><option value="issue">Problème signalé</option><option value="inactive">Inactive</option></select></div>
+    <div class="form-group"><label>Renouvellement</label><input type="date" id="pRenouvellement" /></div>
+    <div class="form-group"><label>Notes (optionnel)</label><textarea id="pNotes" rows="3" placeholder="Observations, problèmes…"></textarea></div>
+    <div class="modal-footer"><button class="btn-ghost" id="cancelParcel">Annuler</button><button class="btn-primary" id="saveParcel">Enregistrer</button></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <h2>Supprimer ce compte ?</h2><p class="modal-sub" id="deleteMsg"></p>
+    <div class="modal-footer"><button class="btn-ghost" id="cancelDelete">Annuler</button><button class="btn-danger" id="confirmDelete">Supprimer</button></div>
+  </div>
+</div>
+
+<div id="toastContainer"></div>
+
+<script>
+const SUPABASE_URL = 'https://dkzucstjlwyivyiglqtl.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRrenVjc3RqbHd5aXZ5aWdscXRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY1MjI4NTAsImV4cCI6MjA5MjA5ODg1MH0.ZFaMLQFXif-TdMVxVA2GgfOpYVLQYj3wRfi2k8_K19o';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const ROLE_LABELS   = { jardinier:'Jardinier', tresoriere:'Tresoriere', secretaire:'Secretaire', presidente:'Presidente' };
+const ROLE_CSS      = { jardinier:'tag-jardinier', tresoriere:'tag-tresoriere', secretaire:'tag-secretaire', presidente:'tag-presidente' };
+const BADGE_CSS     = { jardinier:'role-jardinier', tresoriere:'role-tresoriere', secretaire:'role-secretaire', presidente:'role-presidente' };
+const RIGHTS_LABELS = { parcelle:'Gestion des parcelles', finances:'Acces aux finances', annonces:'Publier des annonces', members:'Voir la liste des membres', admin:'Administration complete' };
+const PARCEL_LABELS = { none:'Aucune parcelle', active:'Active', issue:'Probleme signale', inactive:'Inactive' };
+const PARCEL_CLS    = { none:'parcel-none', active:'parcel-active', issue:'parcel-issue', inactive:'parcel-inactive' };
+const AV_CLASSES    = ['av-green','av-terra','av-blue','av-purple','av-gold','av-teal'];
+const PERM_KEYS     = ['parcelle','finances','annonces','members','admin'];
+
+let currentUser    = null;
+let currentProfile = null;
+let gradeRights    = {};
+let allProfiles    = [];
+let editingId      = null;
+let deletingId     = null;
+let parcelEditId   = null;
+
+// ---- UTILS ----
+const getInitials = n => (n||'').split(' ').map(w=>w[0]||'').join('').toUpperCase().slice(0,2);
+const escHtml = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const fmtDate = d => { if(!d) return ''; const [y,m,day]=d.split('-'); return `${parseInt(day,10)} ${['jan.','fév.','mars','avr.','mai','juin','juil.','août','sep.','oct.','nov.','déc.'][parseInt(m,10)-1]} ${y}`; };
+const genPwd  = (l=14) => { const c='ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#!?'; return Array.from({length:l},()=>c[Math.floor(Math.random()*c.length)]).join(''); };
+const getRights = p => ({ ...(gradeRights[p.role]||{}), ...(p.extra_rights||{}) });
+
+function toast(msg, type='success') {
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`; t.textContent = msg;
+  document.getElementById('toastContainer').appendChild(t);
+  setTimeout(()=>{ t.style.transition='opacity .3s'; t.style.opacity='0'; setTimeout(()=>t.remove(),300); }, 2800);
+}
+
+function showLoading(v) { document.getElementById('loadingScreen').classList.toggle('hidden', !v); }
+
+// ---- INIT ----
+async function init() {
+  showLoading(true);
+  const { data: gr } = await sb.from('grade_rights').select('*');
+  if (gr) gr.forEach(r => gradeRights[r.grade] = r.rights);
+
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    await loadProfile();
+    showLoading(false);
+    currentProfile ? enterDashboard() : showLogin();
+  } else {
+    showLoading(false);
+    showLogin();
+  }
+}
+
+function showLogin() { document.getElementById('loginScreen').style.display='flex'; document.getElementById('dashboard').style.display='none'; }
+
+async function loadProfile() {
+  const { data } = await sb.from('profiles').select('*').eq('id', currentUser.id).single();
+  currentProfile = data || null;
+}
+
+// ---- LOGIN ----
+document.getElementById('loginBtn').addEventListener('click', doLogin);
+['loginPassword','loginEmail'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); }));
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+  const pwd   = document.getElementById('loginPassword').value;
+  const err   = document.getElementById('loginError');
+  const btn   = document.getElementById('loginBtn');
+  if (!email||!pwd) { err.textContent='Veuillez remplir tous les champs.'; return; }
+  btn.disabled=true; btn.textContent='Connexion…';
+  const { data, error } = await sb.auth.signInWithPassword({ email, password: pwd });
+  if (error) { err.textContent='Identifiants incorrects.'; btn.disabled=false; btn.textContent='Se connecter'; return; }
+  currentUser = data.user;
+  await loadProfile();
+  if (!currentProfile) { err.textContent='Profil introuvable. Contactez la présidente.'; await sb.auth.signOut(); btn.disabled=false; btn.textContent='Se connecter'; return; }
+  err.textContent='';
+  document.getElementById('loginScreen').style.display='none';
+  enterDashboard();
+}
+
+// ---- DASHBOARD ----
+async function enterDashboard() {
+  document.getElementById('dashboard').style.display='block';
+  document.getElementById('sidebarAvatar').textContent = getInitials(currentProfile.nom);
+  document.getElementById('sidebarName').textContent = currentProfile.nom;
+  const rb = document.getElementById('sidebarRoleBadge');
+  rb.textContent = ROLE_LABELS[currentProfile.role];
+  rb.className = `user-role-badge ${BADGE_CSS[currentProfile.role]}`;
+  document.getElementById('welcomeTitle').textContent = `Bonjour, ${currentProfile.nom.split(' ')[0]}`;
+  document.getElementById('welcomeSub').textContent = `Grade : ${ROLE_LABELS[currentProfile.role]}`;
+
+  const r = getRights(currentProfile);
+  const ul = document.getElementById('rightsList');
+  ul.innerHTML = '';
+  Object.entries(RIGHTS_LABELS).forEach(([key,label]) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<div class="right-dot ${r[key]?'granted':'denied'}"></div> ${label}${r[key]?'':' <span style="color:var(--text-light);font-size:.8rem;">(non accordé)</span>'}`;
+    ul.appendChild(li);
+  });
+
+  const adminVisible = r.members||r.finances||r.annonces||r.admin;
+  document.querySelector('.admin-section').style.display = adminVisible?'':'none';
+  document.querySelectorAll('.admin-nav').forEach(b=>b.style.display='none');
+  if (r.members||r.admin) document.querySelector('[data-page="members"]').style.display='';
+  if (r.finances||r.admin) document.querySelector('[data-page="finances"]').style.display='';
+  if (r.admin) { document.querySelector('[data-page="comptes"]').style.display=''; document.getElementById('navGrades').style.display=''; }
+  if (r.annonces||r.admin) document.getElementById('navPublish').style.display='';
+
+  await Promise.all([loadAnnouncements(), loadAllProfiles(), loadParcelleData(), loadGradeRights()]);
+  const { count } = await sb.from('profiles').select('*',{count:'exact',head:true});
+  document.getElementById('statMembers').textContent = count??'—';
+}
+
+// ---- LOGOUT ----
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await sb.auth.signOut();
+  currentUser=null; currentProfile=null;
+  document.getElementById('dashboard').style.display='none';
+  document.getElementById('loginPassword').value='';
+  document.getElementById('loginError').textContent='';
+  document.getElementById('loginBtn').disabled=false; document.getElementById('loginBtn').textContent='Se connecter';
+  document.querySelectorAll('.admin-nav').forEach(b=>b.style.display='none');
+  document.querySelector('.admin-section').style.display='none';
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  document.querySelector('[data-page="welcome"]').classList.add('active');
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-welcome').classList.add('active');
+  showLogin();
+});
+
+// ---- NAVIGATION ----
+document.querySelectorAll('.nav-item[data-page]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById(`page-${btn.dataset.page}`).classList.add('active');
+    closeSidebar();
+  });
+});
+
+// ---- MOBILE SIDEBAR ----
+const burgerBtn = document.getElementById('burgerBtn');
+const sidebarEl = document.getElementById('sidebar');
+const overlayEl = document.getElementById('sidebarOverlay');
+function openSidebar()  { sidebarEl.classList.add('open'); overlayEl.classList.add('visible'); overlayEl.style.display='block'; burgerBtn.classList.add('open'); document.body.style.overflow='hidden'; }
+function closeSidebar() { sidebarEl.classList.remove('open'); overlayEl.classList.remove('visible'); burgerBtn.classList.remove('open'); document.body.style.overflow=''; setTimeout(()=>{ if(!sidebarEl.classList.contains('open')) overlayEl.style.display='none'; },300); }
+burgerBtn.addEventListener('click', () => sidebarEl.classList.contains('open')?closeSidebar():openSidebar());
+overlayEl.addEventListener('click', closeSidebar);
+
+// ---- ANNONCES ----
+async function loadAnnouncements() {
+  const { data } = await sb.from('annonces').select('*').order('created_at',{ascending:false});
+  const all = data||[];
+  const mine = all.filter(a => a.audience.includes(currentProfile.role));
+  document.getElementById('statAnnonces').textContent = mine.length;
+  const badge = document.getElementById('annBadge');
+  badge.textContent = mine.length; badge.style.display = mine.length?'':'none';
+  renderAnns(mine,'annoncesList',false);
+  renderAnns(all,'publishedList',true);
+}
+
+function renderAnns(anns, id, admin) {
+  const c = document.getElementById(id); if(!c) return;
+  if(!anns.length) { c.innerHTML=`<div class="empty-state"><strong>Aucune annonce</strong>Rien de nouveau pour le moment.</div>`; return; }
+  c.innerHTML = anns.map(a=>`
+    <div class="announcement-card priority-${a.priority}">
+      <div class="ann-header">
+        <div class="ann-title">${escHtml(a.titre)}</div>
+        <div class="ann-meta">
+          <span class="ann-tag ann-priority-${a.priority}">${a.priority.charAt(0).toUpperCase()+a.priority.slice(1)}</span>
+          ${admin?`<span class="ann-audience">${(a.audience||[]).map(r=>ROLE_LABELS[r]).join(', ')}</span>`:''}
+        </div>
+      </div>
+      <div class="ann-body">${escHtml(admin&&a.contenu.length>120?a.contenu.slice(0,120)+'…':a.contenu)}</div>
+      <div class="ann-footer">Publié le ${fmtDate((a.created_at||'').split('T')[0])} par ${escHtml(a.auteur)}</div>
+      ${admin?`<div class="ann-actions"><button class="btn-sm btn-del" onclick="deleteAnn('${a.id}')">Supprimer</button></div>`:''}
+    </div>`).join('');
+}
+
+window.deleteAnn = async id => {
+  const { error } = await sb.from('annonces').delete().eq('id',id);
+  if (error) { toast('Erreur suppression','error'); return; }
+  toast('Annonce supprimée'); await loadAnnouncements();
+};
+
+document.querySelectorAll('.audience-chip').forEach(chip => {
+  chip.querySelector('input').addEventListener('change', e => chip.classList.toggle('checked', e.target.checked));
+});
+
+document.getElementById('publishBtn').addEventListener('click', async () => {
+  const titre    = document.getElementById('annTitre').value.trim();
+  const contenu  = document.getElementById('annContenu').value.trim();
+  const priority = document.getElementById('annPriority').value;
+  const audience = [...document.querySelectorAll('#audienceChecks input:checked')].map(cb=>cb.value);
+  if (!titre||!contenu) { toast('Titre et contenu requis','error'); return; }
+  if (!audience.length) { toast('Sélectionnez au moins un destinataire','error'); return; }
+  const { error } = await sb.from('annonces').insert({ titre, contenu, priority, audience, auteur: currentProfile.nom });
+  if (error) { toast('Erreur publication : '+error.message,'error'); return; }
+  document.getElementById('annTitre').value=''; document.getElementById('annContenu').value=''; document.getElementById('annPriority').value='normale';
+  document.querySelectorAll('#audienceChecks input').forEach(cb=>{ cb.checked=true; cb.closest('.audience-chip').classList.add('checked'); });
+  toast('Annonce publiée'); await loadAnnouncements();
+});
+
+// ---- PARCELLE ----
+async function loadParcelleData() {
+  const { data } = await sb.from('parcelles').select('*').eq('user_id',currentUser.id).maybeSingle();
+  renderParcelPage(data);
+}
+
+function renderParcelPage(p) {
+  const el = document.getElementById('parcelleContent');
+  if (!p||p.etat==='none'||!p.etat) { el.innerHTML=`<div class="card"><div class="card-body"><p style="color:var(--text-mid);">Aucune parcelle attribuée. Contactez l'association pour en faire la demande.</p></div></div>`; return; }
+  el.innerHTML=`
+    <div class="parcel-detail">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap;">
+        <div><div style="font-family:'Playfair Display',serif;font-size:1.4rem;color:var(--green-deep);font-weight:700;">Parcelle n°${escHtml(p.numero||'—')}</div><div style="font-size:.88rem;color:var(--text-light);margin-top:4px;">${escHtml(p.jardin||'—')}</div></div>
+        <span class="parcel-status ${PARCEL_CLS[p.etat]||'parcel-none'}">${PARCEL_LABELS[p.etat]||'—'}</span>
+      </div>
+      <hr class="divider"/>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+        <div class="parcel-field"><label>Renouvellement</label><p>${p.renouvellement?fmtDate(p.renouvellement):'Non défini'}</p></div>
+        <div class="parcel-field"><label>Cotisation</label><p>En attente de validation</p></div>
+      </div>
+      ${p.notes?`<hr class="divider"/><div class="parcel-field"><label>Notes de l'association</label><p>${escHtml(p.notes)}</p></div>`:''}
+    </div>`;
+}
+
+// ---- MEMBRES ----
+async function loadAllProfiles() {
+  const { data } = await sb.from('profiles').select('*, parcelles(*)');
+  allProfiles = data||[];
+  renderMembersTable(); renderMembersReadOnly();
+}
+
+function renderMembersTable() {
+  const q = (document.getElementById('memberSearch')?.value||'').toLowerCase();
+  const filtered = allProfiles.filter(a => a.nom.toLowerCase().includes(q)||(a.email||'').toLowerCase().includes(q));
+  document.getElementById('memberCount').textContent = `${filtered.length} membre(s)`;
+  document.getElementById('membersBody').innerHTML = filtered.map((acc,i) => {
+    const p = Array.isArray(acc.parcelles)?acc.parcelles[0]:acc.parcelles||{};
+    const etat = p?.etat||'none';
+    return `<tr>
+      <td><div class="member-cell"><div class="member-avatar ${AV_CLASSES[i%AV_CLASSES.length]}">${getInitials(acc.nom)}</div><div><div style="font-weight:500;">${escHtml(acc.nom)}</div>${acc.id===currentUser?.id?'<div style="font-size:.72rem;color:var(--green-light);">vous</div>':''}</div></div></td>
+      <td style="color:var(--text-mid);font-size:.85rem;">${escHtml(acc.email||'')}</td>
+      <td><span class="role-tag ${ROLE_CSS[acc.role]}">${ROLE_LABELS[acc.role]}</span></td>
+      <td><span class="parcel-status ${PARCEL_CLS[etat]}" style="font-size:.72rem;">${etat!=='none'?(p?.numero?'N°'+escHtml(p.numero)+' — ':'')+PARCEL_LABELS[etat]:'Aucune'}</span></td>
+      <td><div class="actions-cell">
+        <button class="btn-sm btn-parcelle" onclick="openParcelModal('${acc.id}')">Parcelle</button>
+        <button class="btn-sm btn-edit" onclick="openEdit('${acc.id}')">Modifier</button>
+        ${acc.id!==currentUser?.id?`<button class="btn-sm btn-del" onclick="openDelete('${acc.id}')">Supprimer</button>`:''}
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+document.getElementById('memberSearch')?.addEventListener('input', renderMembersTable);
+
+function renderMembersReadOnly() {
+  const div = document.getElementById('memberListReadOnly'); if(!div) return;
+  div.innerHTML = `<div class="card-title">Liste des jardiniers</div>` + allProfiles.map((acc,i)=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid rgba(61,122,80,.07);">
+      <div class="member-avatar ${AV_CLASSES[i%AV_CLASSES.length]}" style="width:30px;height:30px;font-size:.75rem;">${getInitials(acc.nom)}</div>
+      <div style="flex:1;min-width:0;"><div style="font-weight:500;font-size:.88rem;">${escHtml(acc.nom)}</div><div style="font-size:.76rem;color:var(--text-light);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escHtml(acc.email||'')}</div></div>
+      <span class="role-tag ${ROLE_CSS[acc.role]}">${ROLE_LABELS[acc.role]}</span>
+    </div>`).join('');
+}
+
+// ---- CREATE/EDIT ACCOUNT ----
+document.getElementById('openCreateModal').addEventListener('click', openCreate);
+
+function openCreate() {
+  editingId=null;
+  document.getElementById('modalTitle').textContent='Nouveau compte';
+  document.getElementById('modalSubtitle').textContent='Renseignez les informations du membre';
+  document.getElementById('pwdHint').style.display='none';
+  ['mNom','mEmail','mPassword'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('mRole').value='jardinier';
+  ['rParcelle','rFinances','rAnnonces','rMembers','rAdmin'].forEach(id=>document.getElementById(id).checked=false);
+  document.getElementById('accountModal').classList.add('open');
+}
+
+window.openEdit = id => {
+  const acc = allProfiles.find(a=>a.id===id); if(!acc) return;
+  editingId=id;
+  document.getElementById('modalTitle').textContent='Modifier le compte';
+  document.getElementById('modalSubtitle').textContent=acc.nom;
+  document.getElementById('pwdHint').style.display='';
+  document.getElementById('mNom').value=acc.nom;
+  document.getElementById('mEmail').value=acc.email||'';
+  document.getElementById('mPassword').value='';
+  document.getElementById('mRole').value=acc.role;
+  const er=acc.extra_rights||{};
+  document.getElementById('rParcelle').checked=!!er.parcelle;
+  document.getElementById('rFinances').checked=!!er.finances;
+  document.getElementById('rAnnonces').checked=!!er.annonces;
+  document.getElementById('rMembers').checked=!!er.members;
+  document.getElementById('rAdmin').checked=!!er.admin;
+  document.getElementById('accountModal').classList.add('open');
+};
+
+document.getElementById('cancelModal').addEventListener('click',()=>document.getElementById('accountModal').classList.remove('open'));
+document.getElementById('accountModal').addEventListener('click',e=>{if(e.target===document.getElementById('accountModal'))document.getElementById('accountModal').classList.remove('open');});
+document.getElementById('generatePwd').addEventListener('click',()=>document.getElementById('mPassword').value=genPwd());
+
+document.getElementById('saveAccount').addEventListener('click', async () => {
+  const nom   = document.getElementById('mNom').value.trim();
+  const email = document.getElementById('mEmail').value.trim().toLowerCase();
+  const pwd   = document.getElementById('mPassword').value.trim();
+  const role  = document.getElementById('mRole').value;
+  if (!nom||!email) { toast('Nom et e-mail requis','error'); return; }
+  if (!editingId&&!pwd) { toast('Mot de passe requis pour un nouveau compte','error'); return; }
+
+  const extra_rights={};
+  if(document.getElementById('rParcelle').checked) extra_rights.parcelle=true;
+  if(document.getElementById('rFinances').checked) extra_rights.finances=true;
+  if(document.getElementById('rAnnonces').checked) extra_rights.annonces=true;
+  if(document.getElementById('rMembers').checked)  extra_rights.members=true;
+  if(document.getElementById('rAdmin').checked)    extra_rights.admin=true;
+
+  const btn=document.getElementById('saveAccount');
+  btn.disabled=true; btn.textContent='Enregistrement…';
+
+  if (editingId) {
+    const { error } = await sb.from('profiles').update({nom,role,extra_rights}).eq('id',editingId);
+    if (error) { toast('Erreur : '+error.message,'error'); btn.disabled=false; btn.textContent='Enregistrer'; return; }
+    toast(`Compte de ${nom} mis à jour`);
+  } else {
+    // Create via signUp (email confirm disabled in Supabase settings)
+    const { data: su, error: se } = await sb.auth.signUp({ email, password: pwd, options: { emailRedirectTo: undefined } });
+    if (se) { toast('Erreur création : '+se.message,'error'); btn.disabled=false; btn.textContent='Enregistrer'; return; }
+    const uid = su.user?.id;
+    if (uid) {
+      const { error: pe } = await sb.from('profiles').insert({id:uid,nom,role,extra_rights});
+      if (pe) { toast('Profil non créé : '+pe.message,'error'); btn.disabled=false; btn.textContent='Enregistrer'; return; }
+    }
+    toast(`Compte de ${nom} créé`);
+  }
+
+  document.getElementById('accountModal').classList.remove('open');
+  btn.disabled=false; btn.textContent='Enregistrer';
+  await loadAllProfiles();
+  const { count } = await sb.from('profiles').select('*',{count:'exact',head:true});
+  document.getElementById('statMembers').textContent=count??'—';
+});
+
+// ---- PARCEL MODAL ----
+window.openParcelModal = async id => {
+  parcelEditId=id;
+  const acc = allProfiles.find(a=>a.id===id);
+  document.getElementById('parcelModalName').textContent=acc?.nom||'';
+  const { data: p } = await sb.from('parcelles').select('*').eq('user_id',id).maybeSingle();
+  document.getElementById('pNumero').value=p?.numero||'';
+  document.getElementById('pJardin').value=p?.jardin||'';
+  document.getElementById('pEtat').value=p?.etat||'none';
+  document.getElementById('pRenouvellement').value=p?.renouvellement||'';
+  document.getElementById('pNotes').value=p?.notes||'';
+  document.getElementById('parcelModal').classList.add('open');
+};
+
+document.getElementById('cancelParcel').addEventListener('click',()=>document.getElementById('parcelModal').classList.remove('open'));
+document.getElementById('parcelModal').addEventListener('click',e=>{if(e.target===document.getElementById('parcelModal'))document.getElementById('parcelModal').classList.remove('open');});
+
+document.getElementById('saveParcel').addEventListener('click', async () => {
+  const payload = {
+    user_id:parcelEditId,
+    numero:document.getElementById('pNumero').value.trim(),
+    jardin:document.getElementById('pJardin').value,
+    etat:document.getElementById('pEtat').value,
+    renouvellement:document.getElementById('pRenouvellement').value||null,
+    notes:document.getElementById('pNotes').value.trim()
+  };
+  const { error } = await sb.from('parcelles').upsert(payload,{onConflict:'user_id'});
+  if (error) { toast('Erreur : '+error.message,'error'); return; }
+  document.getElementById('parcelModal').classList.remove('open');
+  toast('Parcelle mise à jour');
+  await loadAllProfiles();
+  if (parcelEditId===currentUser.id) await loadParcelleData();
+});
+
+// ---- DELETE ----
+window.openDelete = id => {
+  deletingId=id;
+  const acc=allProfiles.find(a=>a.id===id);
+  document.getElementById('deleteMsg').textContent=`Voulez-vous supprimer le compte de ${acc?.nom} ? Cette action est irréversible.`;
+  document.getElementById('deleteModal').classList.add('open');
+};
+
+document.getElementById('cancelDelete').addEventListener('click',()=>document.getElementById('deleteModal').classList.remove('open'));
+document.getElementById('confirmDelete').addEventListener('click', async () => {
+  const acc=allProfiles.find(a=>a.id===deletingId);
+  const { error } = await sb.from('profiles').delete().eq('id',deletingId);
+  if (error) { toast('Erreur : '+error.message,'error'); return; }
+  document.getElementById('deleteModal').classList.remove('open');
+  toast(`Compte de ${acc?.nom} supprimé`);
+  deletingId=null;
+  await loadAllProfiles();
+  const { count } = await sb.from('profiles').select('*',{count:'exact',head:true});
+  document.getElementById('statMembers').textContent=count??'—';
+});
+
+// ---- DROITS PAR GRADE ----
+async function loadGradeRights() {
+  const { data } = await sb.from('grade_rights').select('*');
+  if (data) data.forEach(r=>gradeRights[r.grade]=r.rights);
+  renderGradePermTable();
+}
+
+function renderGradePermTable() {
+  const tbody=document.getElementById('gradePermBody'); if(!tbody) return;
+  tbody.innerHTML = PERM_KEYS.map(key=>`
+    <tr><td>${RIGHTS_LABELS[key]}</td>
+    ${['jardinier','secretaire','tresoriere'].map(g=>`<td><div class="perm-check"><input type="checkbox" data-grade="${g}" data-perm="${key}" ${(gradeRights[g]||{})[key]?'checked':''}/></div></td>`).join('')}
+    </tr>`).join('');
+}
+
+document.getElementById('saveGradePerms').addEventListener('click', async () => {
+  for (const grade of ['jardinier','secretaire','tresoriere']) {
+    const rights={};
+    PERM_KEYS.forEach(key=>{
+      const cb=document.querySelector(`#gradePermBody input[data-grade="${grade}"][data-perm="${key}"]`);
+      rights[key]=cb?cb.checked:false;
+    });
+    gradeRights[grade]=rights;
+    await sb.from('grade_rights').update({rights}).eq('grade',grade);
+  }
+  toast('Droits par grade enregistrés');
+});
+
+// ---- ESC ----
+document.addEventListener('keydown', e => { if(e.key==='Escape') ['accountModal','parcelModal','deleteModal'].forEach(id=>document.getElementById(id).classList.remove('open')); });
+
+init();
+</script>
+</body>
+</html>
